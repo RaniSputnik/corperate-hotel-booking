@@ -172,6 +172,46 @@ func TestBookAvailability(t *testing.T) {
 		err = booker.Book(bob, theHotel, svc.RoomSingle, aprilCheckIn, aprilCheckOut)
 		assert.NoError(t, err)
 	})
+
+	t.Run("allows simulateous bookings if multiple rooms available", func(t *testing.T) {
+		theHotel := svc.HotelID("the-hotel")
+		checkIn, checkOut := times("2019-Mar-03", "2019-Mar-04")
+		oneRoom := &HotelsMock{}
+		oneRoom.Func.GetHotel.Returns.Hotel = &svc.Hotel{
+			ID:   theHotel,
+			Name: "The Hotel",
+			Rooms: []svc.Room{
+				svc.Room{Type: svc.RoomSingle, Number: "03"},
+				svc.Room{Type: svc.RoomSingle, Number: "04"},
+			},
+		}
+		booker := svc.NewBooker(oneRoom)
+
+		err := booker.Book(alice, theHotel, svc.RoomSingle, checkIn, checkOut)
+		assert.NoError(t, err)
+		err = booker.Book(bob, theHotel, svc.RoomSingle, checkIn, checkOut)
+		assert.NoError(t, err)
+	})
+
+	t.Run("fails simulaneous booking if only one available room of the requested type", func(t *testing.T) {
+		theHotel := svc.HotelID("the-hotel")
+		checkIn, checkOut := times("2019-Mar-03", "2019-Mar-04")
+		oneRoom := &HotelsMock{}
+		oneRoom.Func.GetHotel.Returns.Hotel = &svc.Hotel{
+			ID:   theHotel,
+			Name: "The Hotel",
+			Rooms: []svc.Room{
+				svc.Room{Type: svc.RoomSingle, Number: "03"},
+				svc.Room{Type: svc.RoomDouble, Number: "04"},
+			},
+		}
+		booker := svc.NewBooker(oneRoom)
+
+		err := booker.Book(alice, theHotel, svc.RoomSingle, checkIn, checkOut)
+		assert.NoError(t, err)
+		err = booker.Book(bob, theHotel, svc.RoomSingle, checkIn, checkOut)
+		assert.Equal(t, svc.ErrNotAvailable, err)
+	})
 }
 
 func times(checkIn string, checkOut string) (checkInParsed time.Time, checkOutParsed time.Time) {

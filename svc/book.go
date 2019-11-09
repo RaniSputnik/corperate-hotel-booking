@@ -48,8 +48,9 @@ func (s *bookingService) Book(employee EmployeeID, hotelID HotelID, room RoomTyp
 		return ErrRoomNotOfferred
 	}
 
+	availableRooms := hotel.Options(room)
 	existingBookings := getBookingsForPeriod(hotelID, s.bookings, checkIn, checkOut)
-	if len(existingBookings) > 0 {
+	if len(existingBookings) > len(availableRooms)-1 {
 		return ErrNotAvailable
 	}
 
