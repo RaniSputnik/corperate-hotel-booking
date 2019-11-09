@@ -9,16 +9,26 @@ var (
 	ErrCheckoutInvalid = errors.New("checkout time must be at least one day after check in")
 	ErrInvalidHotel    = errors.New("the given hotel id is not valid")
 	ErrRoomNotOfferred = errors.New("the hotel selected does not offer that room type")
+	ErrNotAvailable    = errors.New("not available")
 )
+
+type booking struct {
+	Hotel      HotelID
+	RoomNumber string
+	CheckIn    time.Time
+	CheckOut   time.Time
+}
 
 func NewBooker(hotels Hotels) Booker {
 	return &bookingService{
-		hotels: hotels,
+		hotels:   hotels,
+		bookings: []*booking{},
 	}
 }
 
 type bookingService struct {
-	hotels Hotels
+	hotels   Hotels
+	bookings []*booking
 }
 
 func (s *bookingService) Book(employee EmployeeID, hotelID HotelID, room RoomType, checkIn time.Time, checkOut time.Time) error {
@@ -38,5 +48,34 @@ func (s *bookingService) Book(employee EmployeeID, hotelID HotelID, room RoomTyp
 		return ErrRoomNotOfferred
 	}
 
+	existingBookings := getBookingsForPeriod(hotelID, s.bookings, checkIn, checkOut)
+	if len(existingBookings) > 0 {
+		return ErrNotAvailable
+	}
+
+	// TODO: Do we need to modify check in and out times so that
+	// they are for the correct hour for the given hotel
+	thisBooking := &booking{
+		Hotel:      hotelID,
+		RoomNumber: "TODO",
+		CheckIn:    checkIn,
+		CheckOut:   checkOut,
+	}
+	s.bookings = append(s.bookings, thisBooking)
+
 	return nil
+}
+
+func getBookingsForPeriod(hotelID HotelID, bookings []*booking, checkIn, checkOut time.Time) []*booking {
+	results := []*booking{}
+	for _, booking := range bookings {
+		if booking.Hotel != hotelID {
+			continue
+		}
+		if booking.CheckIn.After(checkOut) || booking.CheckOut.Before(checkIn) {
+			continue
+		}
+		results = append(results, booking)
+	}
+	return results
 }
