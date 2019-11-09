@@ -1,5 +1,7 @@
 package svc
 
+import "time"
+
 type HotelID string
 type EmployeeID string
 
@@ -28,8 +30,20 @@ type Hotel struct {
 	Rooms []Room
 }
 
+// Offers returns true or false whether the hotel contains
+// any rooms of the given type.
+func (h *Hotel) Offers(room RoomType) bool {
+	for _, test := range h.Rooms {
+		if test.Type == room {
+			return true
+		}
+	}
+	return false
+}
+
 type Hotels interface {
 	AddHotel(id HotelID, name string, rooms []Room) (*Hotel, error)
+	GetHotel(id HotelID) (*Hotel, error)
 }
 
 type Employees interface {
@@ -50,4 +64,8 @@ type Policies interface {
 	// Allow returns whether or not a given employee may book the
 	// given room type.
 	Allow(employee EmployeeID, room RoomType) bool
+}
+
+type Booker interface {
+	Book(employee EmployeeID, hotel HotelID, room RoomType, checkIn time.Time, checkOut time.Time) error
 }
