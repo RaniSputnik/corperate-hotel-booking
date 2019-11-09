@@ -1,6 +1,7 @@
 package svc_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -12,8 +13,7 @@ const anyEmployee = svc.EmployeeID("some-employee")
 const anyHotel = svc.HotelID("some-hotel")
 const anyRoom = svc.RoomSingle
 
-var anyCheckIn, _ = time.Parse(shortForm, "2019-Apr-22")
-var anyCheckOut, _ = time.Parse(shortForm, "2019-Apr-30")
+var anyCheckIn, anyCheckOut = times("2019-Apr-22", "2019-Apr-30")
 
 const shortForm = "2006-Jan-02"
 const longForm = "2006-Jan-02 at 3:04pm"
@@ -29,49 +29,37 @@ func TestBookDates(t *testing.T) {
 	}
 
 	t.Run("fails if check-out date matches check-in", func(t *testing.T) {
-		checkIn, _ := time.Parse(shortForm, "2019-Feb-03")
-		checkOut := checkIn
-
+		checkIn, checkOut := times("2019-Feb-03", "2019-Feb-03")
 		err := svc.NewBooker(mockHotels).Book(anyEmployee, anyHotel, anyRoom, checkIn, checkOut)
 		assert.Equal(t, svc.ErrCheckoutInvalid, err)
 	})
 
 	t.Run("fails if the check-out date is later the same day", func(t *testing.T) {
-		checkIn, _ := time.Parse(longForm, "2019-Feb-03 at 9:00am")
-		checkOut, _ := time.Parse(longForm, "2019-Feb-03 at 2:00pm")
-
+		checkIn, checkOut := times("2019-Feb-03 at 9:00am", "2019-Feb-03 at 2:00pm")
 		err := svc.NewBooker(mockHotels).Book(anyEmployee, anyHotel, anyRoom, checkIn, checkOut)
 		assert.Equal(t, svc.ErrCheckoutInvalid, err)
 	})
 
 	t.Run("fails if check-out date is before check-in", func(t *testing.T) {
-		checkIn, _ := time.Parse(shortForm, "2019-Feb-03")
-		checkOut, _ := time.Parse(shortForm, "2019-Feb-02")
-
+		checkIn, checkOut := times("2019-Feb-03", "2019-Feb-02")
 		err := svc.NewBooker(mockHotels).Book(anyEmployee, anyHotel, anyRoom, checkIn, checkOut)
 		assert.Equal(t, svc.ErrCheckoutInvalid, err)
 	})
 
 	t.Run("succeeds if the check-out date is one day after check-in", func(t *testing.T) {
-		checkIn, _ := time.Parse(shortForm, "2019-Feb-03")
-		checkOut, _ := time.Parse(shortForm, "2019-Feb-04")
-
+		checkIn, checkOut := times("2019-Feb-03", "2019-Feb-04")
 		err := svc.NewBooker(mockHotels).Book(anyEmployee, anyHotel, anyRoom, checkIn, checkOut)
 		assert.NoError(t, err)
 	})
 
 	t.Run("succeeds if the check-out date is one month after checkin", func(t *testing.T) {
-		checkIn, _ := time.Parse(shortForm, "2019-Feb-03")
-		checkOut, _ := time.Parse(shortForm, "2019-Mar-03")
-
+		checkIn, checkOut := times("2019-Feb-03", "2019-Mar-03")
 		err := svc.NewBooker(mockHotels).Book(anyEmployee, anyHotel, anyRoom, checkIn, checkOut)
 		assert.NoError(t, err)
 	})
 
 	t.Run("ignores the hours minutes component of the times", func(t *testing.T) {
-		checkIn, _ := time.Parse(longForm, "2019-Feb-03 at 11:59pm")
-		checkOut, _ := time.Parse(longForm, "2019-Feb-04 at 12:01am")
-
+		checkIn, checkOut := times("2019-Feb-03 at 11:59pm", "2019-Feb-04 at 12:01am")
 		err := svc.NewBooker(mockHotels).Book(anyEmployee, anyHotel, anyRoom, checkIn, checkOut)
 		assert.NoError(t, err)
 	})
@@ -128,8 +116,7 @@ func TestBookAvailability(t *testing.T) {
 
 	t.Run("fails if booking a room that is already booked", func(t *testing.T) {
 		theHotel := svc.HotelID("the-hotel")
-		checkIn, _ := time.Parse(shortForm, "2019-Mar-03")
-		checkOut, _ := time.Parse(shortForm, "2019-Mar-04")
+		checkIn, checkOut := times("2019-Mar-03", "2019-Mar-04")
 		oneRoom := &HotelsMock{}
 		oneRoom.Func.GetHotel.Returns.Hotel = &svc.Hotel{
 			ID:   theHotel,
@@ -148,10 +135,8 @@ func TestBookAvailability(t *testing.T) {
 
 	t.Run("fails if two bookings partially overlap", func(t *testing.T) {
 		theHotel := svc.HotelID("the-hotel")
-		firstCheckIn, _ := time.Parse(shortForm, "2019-Mar-03")
-		firstCheckOut, _ := time.Parse(shortForm, "2019-Mar-22")
-		secondCheckIn, _ := time.Parse(shortForm, "2019-Mar-15")
-		secondCheckOut, _ := time.Parse(shortForm, "2019-Apr-02")
+		firstCheckIn, firstCheckOut := times("2019-Mar-03", "2019-Mar-22")
+		secondCheckIn, secondCheckOut := times("2019-Mar-15", "2019-Apr-02")
 		oneRoom := &HotelsMock{}
 		oneRoom.Func.GetHotel.Returns.Hotel = &svc.Hotel{
 			ID:   theHotel,
@@ -170,10 +155,8 @@ func TestBookAvailability(t *testing.T) {
 
 	t.Run("ignores bookings that do not overlap with the booking period", func(t *testing.T) {
 		theHotel := svc.HotelID("the-hotel")
-		marchCheckIn, _ := time.Parse(shortForm, "2019-Mar-03")
-		marchCheckOut, _ := time.Parse(shortForm, "2019-Mar-04")
-		aprilCheckIn, _ := time.Parse(shortForm, "2019-Apr-22")
-		aprilCheckOut, _ := time.Parse(shortForm, "2019-Apr-28")
+		marchCheckIn, marchCheckOut := times("2019-Mar-03", "2019-Mar-04")
+		aprilCheckIn, aprilCheckOut := times("2019-Apr-22", "2019-Apr-28")
 		oneRoom := &HotelsMock{}
 		oneRoom.Func.GetHotel.Returns.Hotel = &svc.Hotel{
 			ID:   theHotel,
@@ -189,4 +172,22 @@ func TestBookAvailability(t *testing.T) {
 		err = booker.Book(bob, theHotel, svc.RoomSingle, aprilCheckIn, aprilCheckOut)
 		assert.NoError(t, err)
 	})
+}
+
+func times(checkIn string, checkOut string) (checkInParsed time.Time, checkOutParsed time.Time) {
+	return parseTime(checkIn), parseTime(checkOut)
+}
+
+func parseTime(str string) time.Time {
+	var result time.Time
+	var err error
+	if strings.Contains(str, "at") {
+		result, err = time.Parse(longForm, str)
+	} else {
+		result, err = time.Parse(shortForm, str)
+	}
+	if err != nil {
+		panic(err)
+	}
+	return result
 }
